@@ -1,0 +1,10 @@
+{
+  "name": "colors",
+  "description": "Physical game with colored LED cubes, controlled with Arduino + Node.",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "express": "4.0.0",
+    "serialport": "1.4.0"
+  }
+}
