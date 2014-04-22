@@ -1,11 +1,12 @@
-/* colors_arduino.ino 
- * by Angela Li 
- * 
+/* colors_arduino.ino
+ * by Angela Li
+ *
  * Arduino controller for Colors, the best game ever! <3
- * 
- * Serves as our I/O layer. Listens for inputs (push buttons) and sends outputs (LEDs, via 
- * shift registers). Delegates game logic and sundry cuteness to a Node.js app via serial. 
- * 
+ *
+ * Game logic and I/O. Listens for inputs (push buttons), updates game state, and sends
+ * outputs (LEDs, via shift registers). Delegates sundry cuteness to a Node.js app
+ * via serial.
+ *
  */
 
 // Pins for inputs (push buttons)
@@ -31,27 +32,32 @@ void setup() {
   pinMode(FOO, OUTPUT);
 }
 
-void loop() {  
+void loop() {
   int up = digitalRead(UP);
   int right = 0; // TODO
   int down = 0; // TODO
   int left = 0; // TODO
-  
+
   // Make sure there was no previous button press (i.e. firing too many times)
   if (!buttonPressed) {
     if (up == HIGH) {
       buttonPressed = true;
-      Serial.println(0);
+      digitalWrite(FOO, HIGH);
     }
-    else if (0) {
-      // TODO
+
+    else {
+      digitalWrite(FOO, LOW);
     }
-    else if (0) {
-      // TODO
-    }
-    else if (0) {
-      // TODO
-    }
+
+//    else if (0) {
+//      // TODO
+//    }
+//    else if (0) {
+//      // TODO
+//    }
+//    else if (0) {
+//      // TODO
+//    }
   }
 
   // Check whether button state can be reset

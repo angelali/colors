@@ -9,10 +9,10 @@ var port = new serial("/dev/tty.usbmodem1421", {
 port.on("open", function() {
   console.log("> serial connection opened");
 
+  var counter = 0;
   port.on("data", function(data) {
     if (data == 0) {
-      // TODO ~ Ignore superfluous fires
-      console.log("> up button pushed");
+      console.log("> data received: " + data);
     }
   });
 });
