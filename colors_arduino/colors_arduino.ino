@@ -19,6 +19,7 @@ const int blankBoard[4][4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0
 int board[4][4];
 int tempBoard[4][4];
 boolean gameInProgress = false;
+boolean gameResult = false;
 boolean buttonPressed = false;
 
 // Pins for inputs (push buttons)
@@ -28,9 +29,9 @@ const int DOWN_PIN = A2;
 const int LEFT_PIN = A3;
 
 // Pins for outputs (shift registers / LEDs)
-const int LATCH_PIN = 8; // green
-const int CLOCK_PIN = 12; // yellow
-const int DATA_PIN = 11; // blue
+const int LATCH_PIN = 8; // Green wire
+const int CLOCK_PIN = 12; // Yellow wire
+const int DATA_PIN = 11; // Blue wire
 
 /* Initializes all connections and creates a new game. */
 void setup() {
@@ -47,7 +48,7 @@ void setup() {
     pinMode(CLOCK_PIN, OUTPUT);
     pinMode(DATA_PIN, OUTPUT);
 
-    // Seed the PRNG with the read from an unconnected pin
+    // Seed the PRNG with the reading from an unconnected pin
     randomSeed(analogRead(A4));
 
     // Begin game
@@ -58,6 +59,7 @@ void setup() {
 void loop() {
     // Make sure we have a game going on
     if (!gameInProgress) {
+        gameResult ? wonGame() : lostGame();
         return;
     }
 
@@ -199,12 +201,71 @@ boolean attemptMove(int dir) {
         return false;
     }
 
-    // TODO ~ Insert new tile
+    // Add a new tile
+    insertTile();
 
     return true;
 }
 
-/* Checks whether the game is still winnable. Calls lostGame() if not. */
+/* Returns whether tile at (i, j) can be moved to (i2, j2).
+ * Updates |tempBoard| if a move is possible. */
+boolean attemptTileMove(int i, int j, int i2, int j2) {
+    // No tile in the original space
+    if (tempBoard[i][j] == 0) {
+        return false;
+    }
+
+    // No tile in the new space
+    if (tempBoard[i2][j2] == 0) {
+        tempBoard[i2][j2] = tempBoard[i][j];
+        tempBoard[i][j] = 0;
+        return true;
+    }
+
+    // Identical tiles, collapse them into the new location
+    if (tempBoard[i][j] == tempBoard[i2][j2]) {
+        tempBoard[i][j] = 0;
+        tempBoard[i2][j2]++;
+
+        // They won!
+        if (tempBoard[i2][j2] == 6) {
+            gameInProgress = false;
+            gameResult = true;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+/* Inserts a tile into |tempBoard|. */
+void insertTile() {
+    // Keep track of empty locations
+    int numEmpty = 0;
+    int locations[16];
+    memset(locations, 0, sizeof(locations));
+
+    // Find empty locations
+    for (int i = 0; i <= 3; i++) {
+        for (int j = 0; j <= 3; j++) {
+            if (tempBoard[i][j] == 0) {
+                locations[numEmpty] = (i * 4) + j;
+                numEmpty++;
+            }
+        }
+    }
+
+    // Choose a random empty location to insert a tile
+    int insertLocation = random(0, numEmpty);
+    int i = insertLocation / 4;
+    int j = insertLocation % 4;
+    tempBoard[i][j] = randomTile();
+
+    return;
+}
+
+/* Checks whether the game is still playable. */
 void checkLost() {
     for (int i = 0; i < 4; i++) {
         if (attemptMove(i)) {
@@ -214,13 +275,14 @@ void checkLost() {
 
     // Whoops, we lost the game
     gameInProgress = false;
-    Serial.println("L");
+    gameResult = false;
 }
 
 /****************************************
  ********** DISPLAY  METHODS ************
  ****************************************/
 
+// (off, red, red-green, green, green-blue, blue, red-blue, white)
 byte colors[8] = {7, 6, 4, 5, 1, 3, 2, 0};
 
 byte color(int tileNum) {
@@ -274,12 +336,28 @@ void renderBoard() {
 
 /* Prints board to serial. For debugging. */
 void printBoard() {
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
+    for (int i = 0; i <= 3; i++) {
+        for (int j = 0; j <= 3; j++) {
             Serial.print(board[i][j]);
         }
         Serial.println("");
     }
+ }
+
+ void wonGame() {
+    Serial.println("W");
+
+    // TODO ~ Show that they won (woohoo!)
+
+    return;
+ }
+
+ void lostGame() {
+    Serial.println("L");
+
+    // TODO ~ Show that they lost (womp womp)
+
+    return;
  }
 
 /****************************************
@@ -289,42 +367,9 @@ void printBoard() {
 /* Randomly returns either 1 or 2. */
 int randomTile() {
     return random(1, 3);
-
 }
 
 /* Randomly returns the index of a row or column. */
 int randomIndex() {
     return random(0, 4);
-}
-
-/* Returns whether tile at (i, j) can be moved to (i2, j2).
- * Updates |tempBoard| if a move is possible. */
-boolean attemptTileMove(int i, int j, int i2, int j2) {
-    // No tile in the original space
-    if (tempBoard[i][j] == 0) {
-        return false;
-    }
-
-    // No tile in the new space
-    if (tempBoard[i2][j2] == 0) {
-        tempBoard[i2][j2] = tempBoard[i][j];
-        tempBoard[i][j] = 0;
-        return true;
-    }
-
-    // Identical tiles, collapse them into the new location
-    if (tempBoard[i][j] == tempBoard[i2][j2]) {
-        tempBoard[i][j] = 0;
-        tempBoard[i2][j2]++;
-
-        // They won!
-        if (tempBoard[i2][j2] == 6) {
-            gameInProgress = false;
-            Serial.println("W");
-        }
-
-        return true;
-    }
-
-    return false;
 }
