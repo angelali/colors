@@ -57,6 +57,18 @@ void setup() {
 
 /* Checks for user input. */
 void loop() {
+    /* BEGIN DEBUGGING */
+    for (int i = 0; i < 8; i++) {
+      board[0][0] = i;
+      board[0][1] = i;
+      board[0][2] = i;
+      board[0][3] = i;
+      renderBoard();
+      delay(500);
+    }
+    return; 
+    /* END DEBUGGING */
+  
     // Make sure we have a game going on
     if (!gameInProgress) {
         gameResult ? wonGame() : lostGame();
@@ -64,27 +76,31 @@ void loop() {
     }
 
     // Read inputs
-    int upVal = analogRead(UP_PIN);
-    int rightVal = analogRead(RIGHT_PIN);
-    int downVal = analogRead(DOWN_PIN);
-    int leftVal = analogRead(LEFT_PIN);
+    int upVal = digitalRead(UP_PIN);
+    int rightVal = digitalRead(RIGHT_PIN);
+    int downVal = digitalRead(DOWN_PIN);
+    int leftVal = digitalRead(LEFT_PIN);
 
     // Confirm that there was no previous button press (so we don't respond too many times)
     if (!buttonPressed) {
         // Make a move
         if (upVal) {
-            buttonPressed = true;
+            Serial.println("UP");
+            buttonPressed = true;            
             makeMove(UP);
         }
         else if (rightVal) {
+            Serial.println("RIGHT");          
             buttonPressed = true;
             makeMove(RIGHT);
         }
         else if (downVal) {
+            Serial.println("DOWN");          
             buttonPressed = true;
             makeMove(DOWN);
         }
         else if (leftVal) {
+            Serial.println("LEFT");          
             buttonPressed = true;
             makeMove(LEFT);
         }
@@ -94,6 +110,8 @@ void loop() {
     else if (!upVal && !rightVal && !downVal && !leftVal) {
         buttonPressed = false;
     }
+    
+    delay(100);
 }
 
 /****************************************
@@ -101,9 +119,14 @@ void loop() {
  ****************************************/
 
 /* Resets internal game state and display. */
-void newGame() {
+void newGame() {   
     // Clear board
     memcpy(board, blankBoard, sizeof(board));
+    
+    /* BEGIN DEBUGGING */
+    renderBoard();
+    return;
+    /* END DEBUGGING */
 
     // Add |initialTiles| new tiles to the board
     int initialTiles = 2;
@@ -293,7 +316,7 @@ byte color(int tileNum) {
     return colors[value];
 }
 
-void renderBoard() {
+void renderBoard() {    
     byte A = color(15) % 2     << 0
            + color( 1)         << 1
            + color( 2)         << 4
