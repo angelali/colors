@@ -15,7 +15,6 @@ const int DOWN = 2;
 const int LEFT = 3;
 
 // Game state
-const int blankBoard[4][4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
 int board[4][4];
 int tempBoard[4][4];
 bool gameInProgress = false;
@@ -135,7 +134,7 @@ void loop() {
 /* Resets internal game state and display. */
 void newGame() {
     // Clear board
-    memcpy(board, blankBoard, sizeof(board));
+    memset(board, 0, sizeof(board));
 
     // Add |initialTiles| new tiles to the board
     int initialTiles = 2;
