@@ -18,20 +18,27 @@ const int LEFT = 3;
 const int blankBoard[4][4] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
 int board[4][4];
 int tempBoard[4][4];
-boolean gameInProgress = false;
-boolean gameResult = false;
-boolean buttonPressed = false;
+bool gameInProgress = false;
+bool gameEndingShown = false;
+bool gameResult = false;
+bool buttonPressed = false;
 
 // Pins for inputs (push buttons)
 const int UP_PIN = A0;
 const int RIGHT_PIN = A1;
 const int DOWN_PIN = A2;
 const int LEFT_PIN = A3;
+const int START_PIN = A4;
 
 // Pins for outputs (shift registers / LEDs)
-const int LATCH_PIN = 8; // Green wire
-const int CLOCK_PIN = 12; // Yellow wire
-const int DATA_PIN = 11; // Blue wire
+// Latch is brown, data is purple, clock is yellow
+const int LATCH_PIN_ONE = 10;
+const int DATA_PIN_ONE = 11;
+const int CLOCK_PIN_ONE = 12;
+
+const int LATCH_PIN_TWO = 4;
+const int DATA_PIN_TWO = 5;
+const int CLOCK_PIN_TWO = 6;
 
 /* Initializes all connections and creates a new game. */
 void setup() {
@@ -44,9 +51,13 @@ void setup() {
     pinMode(DOWN_PIN, INPUT);
     pinMode(LEFT_PIN, INPUT);
 
-    pinMode(LATCH_PIN, OUTPUT);
-    pinMode(CLOCK_PIN, OUTPUT);
-    pinMode(DATA_PIN, OUTPUT);
+    pinMode(LATCH_PIN_ONE, OUTPUT);
+    pinMode(CLOCK_PIN_ONE, OUTPUT);
+    pinMode(DATA_PIN_ONE, OUTPUT);
+
+    pinMode(LATCH_PIN_TWO, OUTPUT);
+    pinMode(CLOCK_PIN_TWO, OUTPUT);
+    pinMode(DATA_PIN_TWO, OUTPUT);
 
     // Seed the PRNG with the reading from an unconnected pin
     randomSeed(analogRead(A4));
@@ -57,20 +68,8 @@ void setup() {
 
 /* Checks for user input. */
 void loop() {
-    /* BEGIN DEBUGGING */
-    for (int i = 0; i < 8; i++) {
-      board[0][0] = i;
-      board[0][1] = i;
-      board[0][2] = i;
-      board[0][3] = i;
-      renderBoard();
-      delay(500);
-    }
-    return; 
-    /* END DEBUGGING */
-  
     // Make sure we have a game going on
-    if (!gameInProgress) {
+    if (!gameInProgress && !gameEndingShown) {
         gameResult ? wonGame() : lostGame();
         return;
     }
@@ -80,37 +79,52 @@ void loop() {
     int rightVal = digitalRead(RIGHT_PIN);
     int downVal = digitalRead(DOWN_PIN);
     int leftVal = digitalRead(LEFT_PIN);
+    int startVal = digitalRead(START_PIN);
 
     // Confirm that there was no previous button press (so we don't respond too many times)
     if (!buttonPressed) {
-        // Make a move
-        if (upVal) {
-            Serial.println("UP");
-            buttonPressed = true;            
-            makeMove(UP);
+        // Currently playing a game -- make a move (maybe)
+        if (gameInProgress) {
+            if (upVal) {
+                Serial.println(0);
+                buttonPressed = true;
+                makeMove(UP);
+            }
+            else if (rightVal) {
+                Serial.println(1);
+                buttonPressed = true;
+                makeMove(RIGHT);
+            }
+            else if (downVal) {
+                Serial.println(2);
+                buttonPressed = true;
+                makeMove(DOWN);
+            }
+            else if (leftVal) {
+                Serial.println(3);
+                buttonPressed = true;
+                makeMove(LEFT);
+            }
+            else if (startVal) {
+                Serial.println(4);
+                buttonPressed = true;
+                newGame();
+            }
         }
-        else if (rightVal) {
-            Serial.println("RIGHT");          
+
+        // Not currently playing a game -- start a new one (maybe)
+        else if (startVal) {
+            Serial.println(4);
             buttonPressed = true;
-            makeMove(RIGHT);
-        }
-        else if (downVal) {
-            Serial.println("DOWN");          
-            buttonPressed = true;
-            makeMove(DOWN);
-        }
-        else if (leftVal) {
-            Serial.println("LEFT");          
-            buttonPressed = true;
-            makeMove(LEFT);
+            newGame();
         }
     }
 
     // Reset button state if necessary
-    else if (!upVal && !rightVal && !downVal && !leftVal) {
+    else if (!upVal && !rightVal && !downVal && !leftVal && !startVal) {
         buttonPressed = false;
     }
-    
+
     delay(100);
 }
 
@@ -119,14 +133,9 @@ void loop() {
  ****************************************/
 
 /* Resets internal game state and display. */
-void newGame() {   
+void newGame() {
     // Clear board
     memcpy(board, blankBoard, sizeof(board));
-    
-    /* BEGIN DEBUGGING */
-    renderBoard();
-    return;
-    /* END DEBUGGING */
 
     // Add |initialTiles| new tiles to the board
     int initialTiles = 2;
@@ -147,7 +156,7 @@ void newGame() {
 
 /* Updates internal game state and display. */
 void makeMove(int dir) {
-    boolean validMove = attemptMove(dir);
+    boolean validMove = attemptMove(dir, true);
 
     // Don't do anything if the move wasn't valid
     if (!validMove) {
@@ -166,7 +175,7 @@ void makeMove(int dir) {
 
 /* Returns whether or not a given move is valid on the current board.
  * Stores the updated board (with a new inserted tile) in |tempBoard|. */
-boolean attemptMove(int dir) {
+boolean attemptMove(int dir, bool madeByUser) {
     // Clone our current board so we can work with it
     memcpy(tempBoard, board, sizeof(board));
 
@@ -180,7 +189,7 @@ boolean attemptMove(int dir) {
                     if (i == 0) {
                         continue;
                     }
-                    movedAnythingYet = attemptTileMove(i, j, i - 1, j) || movedAnythingYet;
+                    movedAnythingYet = attemptTileMove(i, j, i - 1, j, madeByUser) || movedAnythingYet;
                 }
             }
         break;
@@ -191,7 +200,7 @@ boolean attemptMove(int dir) {
                     if (j == 3) {
                         continue;
                     }
-                    movedAnythingYet = attemptTileMove(i, j, i, j + 1) || movedAnythingYet;
+                    movedAnythingYet = attemptTileMove(i, j, i, j + 1, madeByUser) || movedAnythingYet;
                 }
             }
         break;
@@ -202,7 +211,7 @@ boolean attemptMove(int dir) {
                     if (i == 3) {
                         continue;
                     }
-                    movedAnythingYet = attemptTileMove(i, j, i + 1, j) || movedAnythingYet;
+                    movedAnythingYet = attemptTileMove(i, j, i + 1, j, madeByUser) || movedAnythingYet;
                 }
             }
         break;
@@ -213,7 +222,7 @@ boolean attemptMove(int dir) {
                     if (j == 0) {
                         continue;
                     }
-                    movedAnythingYet = attemptTileMove(i, j, i, j - 1) || movedAnythingYet;
+                    movedAnythingYet = attemptTileMove(i, j, i, j - 1, madeByUser) || movedAnythingYet;
                 }
             }
         break;
@@ -232,7 +241,7 @@ boolean attemptMove(int dir) {
 
 /* Returns whether tile at (i, j) can be moved to (i2, j2).
  * Updates |tempBoard| if a move is possible. */
-boolean attemptTileMove(int i, int j, int i2, int j2) {
+bool attemptTileMove(int i, int j, int i2, int j2, bool madeByUser) {
     // No tile in the original space
     if (tempBoard[i][j] == 0) {
         return false;
@@ -251,9 +260,10 @@ boolean attemptTileMove(int i, int j, int i2, int j2) {
         tempBoard[i2][j2]++;
 
         // They won!
-        if (tempBoard[i2][j2] == 6) {
-            gameInProgress = false;
+        if (tempBoard[i2][j2] == 7 && madeByUser) {
             gameResult = true;
+            gameInProgress = false;
+            gameEndingShown = false;
         }
 
         return true;
@@ -280,9 +290,9 @@ void insertTile() {
     }
 
     // Choose a random empty location to insert a tile
-    int insertLocation = random(0, numEmpty);
-    int i = insertLocation / 4;
-    int j = insertLocation % 4;
+    int location = locations[random(0, numEmpty)];
+    int i = location / 4;
+    int j = location % 4;
     tempBoard[i][j] = randomTile();
 
     return;
@@ -291,7 +301,7 @@ void insertTile() {
 /* Checks whether the game is still playable. */
 void checkLost() {
     for (int i = 0; i < 4; i++) {
-        if (attemptMove(i)) {
+        if (attemptMove(i, false)) {
             return;
         }
     }
@@ -299,6 +309,7 @@ void checkLost() {
     // Whoops, we lost the game
     gameInProgress = false;
     gameResult = false;
+    gameEndingShown = false;
 }
 
 /****************************************
@@ -316,46 +327,45 @@ byte color(int tileNum) {
     return colors[value];
 }
 
-void renderBoard() {    
-    byte A = color(15) % 2     << 0
-           + color( 1)         << 1
-           + color( 2)         << 4
-           + color( 3) % 2     << 7;
+void renderBoard() {
+    byte A =  color( 1) * 2 +
+              color( 2) * 16 +
+            ((color( 3) % 2) * 128) +
+              color(15) % 2;
+    byte B = (color( 3) / 2) * 2 +
+              color( 4) * 8 +
+             (color( 5) % 4) * 64 +
+             (color(15) / 2) % 2;
+    byte C = (color( 5) / 4) * 2 +
+              color( 6) * 4 +
+              color( 7) * 32 +
+              color(15) / 4;
 
-    byte B = color(15) % 4 / 2 << 0
-           + color( 3) / 2     << 1
-           + color( 4)         << 3
-           + color( 5) % 4     << 6;
+    byte D =  color( 8) * 2 +
+              color( 9) * 16 +
+             (color(10) % 2) * 128 +
+              color(16) % 2;
+    byte E = (color(10) / 2) * 2 +
+              color(11) * 8 +
+             (color(12) % 4) * 64 +
+             (color(16) / 2 % 2);
+    byte F = (color(12) / 4) * 2 +
+              color(13) * 4 +
+              color(14) * 32 +
+              color(16) / 4;
 
-    byte C = color(15) / 4     << 0
-           + color( 5) / 4     << 1
-           + color( 6)         << 2
-           + color( 7)         << 5;
+    digitalWrite(LATCH_PIN_ONE, LOW);
+    shiftOut(DATA_PIN_ONE, CLOCK_PIN_ONE, MSBFIRST, C);
+    shiftOut(DATA_PIN_ONE, CLOCK_PIN_ONE, MSBFIRST, B);
+    shiftOut(DATA_PIN_ONE, CLOCK_PIN_ONE, MSBFIRST, A);
+    digitalWrite(LATCH_PIN_ONE, HIGH);
 
-    byte D = color(16) % 2     << 0
-           + color( 8)         << 1
-           + color( 9)         << 4
-           + color(10) % 2     << 7;
-
-    byte E = color(16) % 4 / 2 << 0
-           + color(10) / 2     << 1
-           + color(11)         << 3
-           + color(12) % 4     << 6;
-
-    byte F = color(16) / 4     << 0
-           + color(12) / 4     << 1
-           + color(13)         << 2
-           + color(14)         << 5;
-
-    digitalWrite(LATCH_PIN, LOW);
-    shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, F);
-    shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, E);
-    shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, D);
-    shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, C);
-    shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, B);
-    shiftOut(DATA_PIN, CLOCK_PIN, MSBFIRST, A);
-    digitalWrite(LATCH_PIN, HIGH);
- }
+    digitalWrite(LATCH_PIN_TWO, LOW);
+    shiftOut(DATA_PIN_TWO, CLOCK_PIN_TWO, MSBFIRST, F);
+    shiftOut(DATA_PIN_TWO, CLOCK_PIN_TWO, MSBFIRST, E);
+    shiftOut(DATA_PIN_TWO, CLOCK_PIN_TWO, MSBFIRST, D);
+    digitalWrite(LATCH_PIN_TWO, HIGH);
+}
 
 /* Prints board to serial. For debugging. */
 void printBoard() {
@@ -367,21 +377,49 @@ void printBoard() {
     }
  }
 
- void wonGame() {
+/* Show player that they won (woohoo!), and restart the game. */
+void wonGame() {
     Serial.println("W");
 
-    // TODO ~ Show that they won (woohoo!)
+    // Fill board with white
+    fillBoard(7);
 
+    // Much excite
+    gameEndingShown = true;
     return;
- }
+}
 
- void lostGame() {
+/* Show player that they lost (womp womp), and restart the game. */
+void lostGame() {
     Serial.println("L");
 
-    // TODO ~ Show that they lost (womp womp)
+    // Fill board with red
+    fillBoard(1);
 
+    // Very wow
+    gameEndingShown = true;
     return;
- }
+}
+
+void allOn() {
+    memset(board, 7, sizeof(board));
+    renderBoard();
+}
+
+void allOff() {
+    memset(board, 0, sizeof(board));
+    renderBoard();
+}
+
+void fillBoard(int color) {
+    for (int i = 0; i <= 3; i++) {
+        for (int j = 0; j <= 3; j++) {
+            board[i][j] = color;
+            renderBoard();
+            delay(500);
+        }
+    }
+}
 
 /****************************************
 ********** UTILITY METHODS *************

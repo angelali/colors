@@ -11,8 +11,6 @@ port.on("open", function() {
 
   var counter = 0;
   port.on("data", function(data) {
-    if (data == 0) {
-      console.log("> data received: " + data);
-    }
+    console.log("> data received: " + data);
   });
 });
